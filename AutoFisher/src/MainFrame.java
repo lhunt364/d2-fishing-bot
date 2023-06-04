@@ -9,18 +9,21 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.MouseInfo;
 import javax.swing.*;
-import com.github.kwhat.jnativehook.GlobalScreen;
-import com.github.kwhat.jnativehook.NativeHookException;
-import com.github.kwhat.jnativehook.dispatcher.SwingDispatchService;
-import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
-import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
+import org.jnativehook.GlobalScreen;
+import org.jnativehook.NativeHookException;
+import org.jnativehook.dispatcher.SwingDispatchService;
+import org.jnativehook.keyboard.NativeKeyEvent;
+import org.jnativehook.keyboard.NativeKeyListener;
 
 
 @SuppressWarnings("serial")
@@ -245,6 +248,8 @@ class MainPane extends JPanel implements NativeKeyListener
 		
         try {
             //what the fuck is happening here
+        	Logger logger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
+        	logger.setLevel(Level.OFF);
         	GlobalScreen.addNativeKeyListener(this);
             GlobalScreen.registerNativeHook();
             GlobalScreen.setEventDispatcher(new SwingDispatchService());
@@ -271,6 +276,12 @@ class MainPane extends JPanel implements NativeKeyListener
         		v.run();
         });
     }
+	
+	@Override
+	public void nativeKeyReleased(NativeKeyEvent arg0) {}
+
+	@Override
+	public void nativeKeyTyped(NativeKeyEvent arg0) {}
 	
 	//magic code do not touch
 	private void simulateButtonPress(JButton button) 
@@ -453,16 +464,18 @@ class ImageComparator
 class PropertiesWrapper
 {
 	private Properties props;
-	private static final String config = "config.properties";
+	private File propFile;
 	
 	public PropertiesWrapper()
 	{
 		props = new Properties();
 		try {
-            FileInputStream fileInputStream = new FileInputStream(config);
+            propFile = FileLocator.getFileAdjacentToJar("config.properties");
+            FileInputStream fileInputStream = new FileInputStream(propFile);
             props.load(fileInputStream);
         } catch (IOException e) {
             e.printStackTrace();
+            
         }
 	}
 	
@@ -474,10 +487,8 @@ class PropertiesWrapper
 	public void setIntProp(String s, int i)
 	{
 		props.setProperty(s, i+"");
-		try {
-            FileOutputStream fileOutputStream = new FileOutputStream(config);
+		try (FileOutputStream fileOutputStream = new FileOutputStream(propFile)) {
             props.store(fileOutputStream, null);
-            fileOutputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -488,16 +499,13 @@ class PropertiesWrapper
 		return props.getProperty(s);
 	}
 	
-	public void setStringProp(String s, String v)
-	{
-		props.setProperty(s, v);
-		try {
-            FileOutputStream fileOutputStream = new FileOutputStream(config);
-            props.store(fileOutputStream, null);
-            fileOutputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+	public void setStringProp(String s, String v) {
+	    props.setProperty(s, v);
+	    try (FileOutputStream fileOutputStream = new FileOutputStream(propFile)) {
+	        props.store(fileOutputStream, null);
+	    } catch (IOException e) {
+	        e.printStackTrace();
+	    }
 	}
 	
 	public double getDoubleProp(String s)
@@ -505,16 +513,51 @@ class PropertiesWrapper
 		return Double.parseDouble(props.getProperty(s));
 	}
 	
-	public void setDoubleProp(String s, double d)
-	{
-		props.setProperty(s, d + "");
-		try {
-            FileOutputStream fileOutputStream = new FileOutputStream(config);
-            props.store(fileOutputStream, null);
-            fileOutputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+	public void setDoubleProp(String s, double d) {
+	    props.setProperty(s, String.valueOf(d));
+	    try (FileOutputStream fileOutputStream = new FileOutputStream(propFile)) {
+	        props.store(fileOutputStream, null);
+	    } catch (IOException e) {
+	        e.printStackTrace();
+	    }
 	}
 	
+}
+
+//chatgpt gobleguk; i hate java
+class FileLocator {
+    public static File getFileAdjacentToJar(String fileName) {
+        // Check if running from a JAR file
+        if (isRunningFromJar()) {
+            String jarPath = getJarPath();
+            if (jarPath != null) {
+                String parentDirectoryPath = new File(jarPath).getParent();
+                File adjacentFile = new File(parentDirectoryPath, fileName);
+                if (adjacentFile.exists()) {
+                    return adjacentFile;
+                }
+            }
+        } else { // Running from Eclipse or other IDE
+            File adjacentFile = new File(fileName);
+            if (adjacentFile.exists()) {
+                return adjacentFile;
+            }
+        }
+
+        return null;
+    }
+
+    private static boolean isRunningFromJar() {
+        return FileLocator.class.getResource("FileLocator.class").toString().startsWith("jar:");
+    }
+
+    private static String getJarPath() {
+        String jarPath = FileLocator.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        try {
+            jarPath = java.net.URLDecoder.decode(jarPath, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return jarPath;
+    }
 }
