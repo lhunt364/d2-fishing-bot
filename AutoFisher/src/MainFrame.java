@@ -59,7 +59,7 @@ class MainPane extends JPanel implements NativeKeyListener
 	
 	private Thread fishThread;
 	private Thread updateMouseXY;
-	//the amount of shit that is static annoys me but im too lazy to change it
+	//the amount of shit that is static annoys me but im too lazy to change it 
 	private static JLabel mouseXY;
 	private static JButton startButton;
 	private static JButton stopButton;
