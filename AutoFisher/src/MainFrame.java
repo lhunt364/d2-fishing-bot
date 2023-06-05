@@ -1,7 +1,6 @@
 import java.awt.AWTException;
 import java.awt.Color;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
+import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.PointerInfo;
 import java.awt.Rectangle;
@@ -32,7 +31,7 @@ public class MainFrame extends JFrame
 {
 	public MainFrame()
 	{
-		super();
+		this.setBounds(200, 200, 300, 300);
 		this.setTitle("D2 AutoFish");
 		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
 		this.setResizable(false);
@@ -57,7 +56,6 @@ class MainPane extends JPanel implements NativeKeyListener
 	private HashMap<String, JButton> binds; //binds for key to button
 	private HashMap<String, Runnable> rawBinds; //binds for key to method
 	private static boolean bindsEnabled;
-	private static boolean antiAFKEnabled;
 	
 	private Thread fishThread;
 	private Thread updateMouseXY;
@@ -72,30 +70,22 @@ class MainPane extends JPanel implements NativeKeyListener
 	
 	public MainPane(MainFrame f)
 	{
-		super();
 		//set up fields
 		pw = new PropertiesWrapper();
 		ic = new ImageComparator();
 		binds = new HashMap<String, JButton>();
 		rawBinds = new HashMap<String, Runnable>();
-		bindsEnabled = false;
-		antiAFKEnabled = false;
+		bindsEnabled = true;
 		//everything else
 		
-		this.setLayout(new GridBagLayout());
-
-        // Create constraints
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weightx = 1;
-        gbc.weighty = 1;
+		this.setLayout(null);
 		this.setFocusable(true);
 		this.setFocusTraversalKeysEnabled(true);
+		this.setPreferredSize(new Dimension(300, 300));
 		
 		
 		JCheckBox onTop = new JCheckBox("Window Always On Top");
-		gbc.gridx = 0;
-		gbc.gridy = 0;
+		onTop.setBounds(0, 0, 200, 25);
 		onTop.addActionListener(new ActionListener() {
 
 			@Override
@@ -105,12 +95,11 @@ class MainPane extends JPanel implements NativeKeyListener
 			}
 			
 		});
-		this.add(onTop, gbc);
+		this.add(onTop);
 		onTop.doClick();
 		
 		JCheckBox mouseOn = new JCheckBox("Enable Mouse Coords");
-		gbc.gridx = 0;
-		gbc.gridy = 1;
+		mouseOn.setBounds(0, 30, 250, 25);
 		mouseOn.addActionListener(new ActionListener() {
 
 			@Override
@@ -134,57 +123,40 @@ class MainPane extends JPanel implements NativeKeyListener
 			}
 			
 		});
-		this.add(mouseOn, gbc);
+		this.add(mouseOn);
 		
 		mouseXY = new JLabel("Mouse Coords: Disabled");
-		gbc.gridx = 1;
-		gbc.gridy = 1;
-		this.add(mouseXY, gbc);
-		
-		//coord1pane
-		JPanel coord1Pane = new JPanel();
-		coord1Pane.setLayout(new BoxLayout(coord1Pane, BoxLayout.X_AXIS));
+		mouseXY.setBounds(5, 40, 250, 50);
+		this.add(mouseXY);
 		
 		x1Field = new JTextField(pw.getStringProp("x1"));
-		coord1Pane.add(x1Field);
+		x1Field.setBounds(0, 90, 50, 25);
+		this.add(x1Field);
 		
 		y1Field = new JTextField(pw.getStringProp("y1"));
-		coord1Pane.add(y1Field);
-		//coord1pane end
-		gbc.gridx = 0;
-		gbc.gridy = 2;
-		this.add(coord1Pane, gbc);
+		y1Field.setBounds(50, 90, 50, 25);
+		this.add(y1Field);
 		
 		JLabel coord1Label = new JLabel("coord1 auto set: " + pw.getStringProp("coordone"));
-		gbc.gridx = 1;
-		gbc.gridy = 2;
-		this.add(coord1Label, gbc);
+		coord1Label.setBounds(100, 90, 200, 25);
+		this.add(coord1Label);
 		addRawBind("coordone", this::setCoords1);
 		
-		//coord2pane
-		JPanel coord2Pane = new JPanel();
-		coord2Pane.setLayout(new BoxLayout(coord2Pane, BoxLayout.X_AXIS));
-		
 		x2Field = new JTextField(pw.getStringProp("x2"));
-		
-		coord2Pane.add(x2Field);
+		x2Field.setBounds(0, 115, 50, 25);
+		this.add(x2Field);
 		
 		y2Field = new JTextField(pw.getStringProp("y2"));
-		coord2Pane.add(y2Field);
-		//coord2pane end
-		gbc.gridx = 0;
-		gbc.gridy = 3;
-		this.add(coord2Pane, gbc);
-				
+		y2Field.setBounds(50, 115, 50, 25);
+		this.add(y2Field);
+		
 		JLabel coord2Label = new JLabel("coord2 auto set: " + pw.getStringProp("coordtwo"));
-		gbc.gridx = 1;
-		gbc.gridy = 3;
-		this.add(coord2Label, gbc);
+		coord2Label.setBounds(100, 115, 200, 25);
+		this.add(coord2Label);
 		addRawBind("coordtwo", this::setCoords2);
 		
 		JCheckBox lockCoords = new JCheckBox("Lock Coords");
-		gbc.gridx = 0;
-		gbc.gridy = 4;
+		lockCoords.setBounds(0, 150, 150, 25);
 		lockCoords.addActionListener(new ActionListener() {
 
 			@Override
@@ -198,12 +170,11 @@ class MainPane extends JPanel implements NativeKeyListener
 			}
 			
 		});
-		this.add(lockCoords, gbc);
+		this.add(lockCoords);
 		lockCoords.doClick();
 		
 		JCheckBox enableBinds = new JCheckBox("Enable Binds");
-		gbc.gridx = 0;
-		gbc.gridy = 5;
+		enableBinds.setBounds(150, 150, 150, 25);
 		enableBinds.addActionListener(new ActionListener() {
 
 			@Override
@@ -213,27 +184,11 @@ class MainPane extends JPanel implements NativeKeyListener
 			}
 			
 		});
-		this.add(enableBinds, gbc);
+		this.add(enableBinds);
 		enableBinds.doClick();
 		
-		JCheckBox enableAntiAFK = new JCheckBox("Enable Anti AFK");
-		gbc.gridx = 1;
-		gbc.gridy = 5;
-		enableAntiAFK.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) 
-			{
-				MainPane.antiAFKEnabled = enableAntiAFK.isSelected();
-			}
-			
-		});
-		this.add(enableAntiAFK, gbc);
-		enableAntiAFK.doClick();
-		
 		JButton saveCoords = new JButton("Save Coords");
-		gbc.gridx = 0;
-		gbc.gridy = 6;
+		saveCoords.setBounds(0, 180, 150, 50);
 		saveCoords.addActionListener(new ActionListener() {
 
 			@Override
@@ -255,39 +210,10 @@ class MainPane extends JPanel implements NativeKeyListener
 			}
 			
 		});
-		this.add(saveCoords, gbc);
-		/* TODO: add all this stuff
-		HashMap<String, String> convert = new HashMap<String, String>() {{
-			put("Jump", "jump");
-			put("Move Backward", "backward");
-			put("Move Forward", "forward");
-			put("Set Coord 2", "coordtwo");
-            put("Set Coord 1", "coordone");
-            put("Stop Button", "stop");
-            put("Start Button", "start");
-        }};
-        
-        JComboBox<String> comboBox = new JComboBox<>(convert.keySet().toArray(new String[0]));
-        comboBox.setBounds(150, 223, 150, 25);
-
-        this.add(comboBox);
-        
-		JButton updateConfig = new JButton("Update Binds");
-		updateConfig.setBounds(150, 198, 150, 25);
-		updateConfig.addActionListener(new ActionListener() {
-
-			@Override
-			public void actionPerformed(ActionEvent e) 
-			{
-				
-			}
-			
-		});
-		this.add(updateConfig);
-		*/
+		this.add(saveCoords);
+		
 		startButton = new JButton("Start (" + pw.getStringProp("start") + ")");
-		gbc.gridx = 0;
-		gbc.gridy = 7;
+		startButton.setBounds(0, 250, 150, 50);
 		startButton.addActionListener(new ActionListener() {
 
 			@Override
@@ -300,12 +226,11 @@ class MainPane extends JPanel implements NativeKeyListener
 			}
 			
 		});
-		this.add(startButton, gbc);
+		this.add(startButton);
 		addBind("start", startButton);
 		
 		stopButton = new JButton("Stop (" + pw.getStringProp("stop") + ")");
-		gbc.gridx = 1;
-		gbc.gridy = 7;
+		stopButton.setBounds(150, 250, 150, 50);
 		stopButton.setEnabled(false);
 		stopButton.addActionListener(new ActionListener() {
 
@@ -317,11 +242,12 @@ class MainPane extends JPanel implements NativeKeyListener
 			}
 			
 		});
-		this.add(stopButton, gbc);
+		this.add(stopButton);
 		addBind("stop", stopButton);
 		
 		
         try {
+            //what the fuck is happening here
         	Logger logger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
         	logger.setLevel(Level.OFF);
         	GlobalScreen.addNativeKeyListener(this);
@@ -334,7 +260,6 @@ class MainPane extends JPanel implements NativeKeyListener
 		
 		
 		this.setVisible(true);
-		
 	}
 	
 	@Override
@@ -428,35 +353,18 @@ class MainPane extends JPanel implements NativeKeyListener
 		rawBinds.put(prop, r);
 	}
 	
-	private static int getKeyCode(String keyName) 
-	{
-        try {
-            int keyCode = KeyEvent.class.getField("VK_" + keyName.toUpperCase()).getInt(null);
-            return keyCode;
-        } catch (NoSuchFieldException | IllegalAccessException | IllegalArgumentException ex) {
-            ex.printStackTrace();
-            return -1;
-        }
-    }
-	
 	private static void fish()
 	{
 		try {
 			int timeout = pw.getIntProp("timeout");
 			int interval = pw.getIntProp("interval");
-			int afkInterval = pw.getIntProp("afkinterval");
-			int afkTimer = 0;
 			int whiteThreshold = pw.getIntProp("white");
 			double significance = pw.getDoubleProp("significance");
-			int key = getKeyCode(pw.getStringProp("fishbutton"));
-			int forwardKey = getKeyCode(pw.getStringProp("forward"));
-			int backwardKey = getKeyCode(pw.getStringProp("backward"));
-			int jumpKey = getKeyCode(pw.getStringProp("jump"));
-			
+			int key = KeyEvent.getExtendedKeyCodeForChar(pw.getStringProp("fishbutton").charAt(0));
+
 			Robot robot = new Robot();
 			while(!Thread.currentThread().isInterrupted())
 			{
-				long startTime = System.currentTimeMillis();
 				System.out.println("start");
 				robot.keyPress(key);
 				Thread.sleep(1000);
@@ -496,33 +404,6 @@ class MainPane extends JPanel implements NativeKeyListener
 				Thread.sleep(100);
 				robot.keyRelease(key);
 				Thread.sleep(4000);
-				
-				long endTime = System.currentTimeMillis();
-				long timeDiff = endTime - startTime;
-				afkTimer += timeDiff;
-				if(afkTimer >= afkInterval)
-				{
-					afkTimer = 0;
-					if(MainPane.antiAFKEnabled)
-					{
-						System.out.println("antiafk");
-						int holdTime = (int)(Math.random() * 25) + 25;
-						int waitTime = (int)(Math.random() * 35) + 30;
-						robot.keyPress(forwardKey);
-						Thread.sleep(holdTime);
-						robot.keyRelease(forwardKey);
-						Thread.sleep(waitTime);
-						robot.keyPress(backwardKey);
-						Thread.sleep(holdTime);
-						robot.keyRelease(backwardKey);
-						Thread.sleep(waitTime);
-						robot.keyPress(jumpKey);
-						Thread.sleep(waitTime + holdTime);
-						robot.keyRelease(jumpKey);
-						Thread.sleep(3000);
-						System.out.println("antiafkdone");
-					}
-				}
 			}
 		}catch(InterruptedException | AWTException e) {
 			e.printStackTrace();
