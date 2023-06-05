@@ -84,6 +84,7 @@ class MainPane extends JPanel implements NativeKeyListener
 		
 		this.setLayout(new GridBagLayout());
 
+        // Create constraints
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 1;
