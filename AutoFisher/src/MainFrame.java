@@ -1,4 +1,5 @@
 import java.awt.AWTException;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -9,6 +10,8 @@ import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
@@ -16,10 +19,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.MouseInfo;
 import javax.swing.*;
+import javax.swing.border.Border;
+
 import org.jnativehook.GlobalScreen;
 import org.jnativehook.NativeHookException;
 import org.jnativehook.dispatcher.SwingDispatchService;
@@ -70,6 +76,8 @@ class MainPane extends JPanel implements NativeKeyListener
 	private static JTextField x2Field;
 	private static JTextField y2Field;
 	
+	private static volatile int lastKeyPressed; //USED FOR REBINDING KEYS, DO NOT USE FOR ANYTHING ELSE (maybe you could idk)
+	
 	public MainPane(MainFrame f)
 	{
 		super();
@@ -80,6 +88,7 @@ class MainPane extends JPanel implements NativeKeyListener
 		rawBinds = new HashMap<String, Runnable>();
 		bindsEnabled = false;
 		antiAFKEnabled = false;
+		lastKeyPressed = 0;
 		//everything else
 		
 		this.setLayout(new GridBagLayout());
@@ -255,7 +264,7 @@ class MainPane extends JPanel implements NativeKeyListener
 			
 		});
 		this.add(saveCoords, gbc);
-		/* TODO: add all this stuff
+
 		HashMap<String, String> convert = new HashMap<String, String>() {{
 			put("Jump", "jump");
 			put("Move Backward", "backward");
@@ -266,24 +275,154 @@ class MainPane extends JPanel implements NativeKeyListener
             put("Start Button", "start");
         }};
         
-        JComboBox<String> comboBox = new JComboBox<>(convert.keySet().toArray(new String[0]));
-        comboBox.setBounds(150, 223, 150, 25);
-
-        this.add(comboBox);
-        
+        //TODO: it is a miracle this actually works without exploding
 		JButton updateConfig = new JButton("Update Binds");
-		updateConfig.setBounds(150, 198, 150, 25);
+		gbc.gridx = 1;
+		gbc.gridy = 6;
 		updateConfig.addActionListener(new ActionListener() {
 
 			@Override
 			public void actionPerformed(ActionEvent e) 
 			{
+				PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+				Point point = pointerInfo.getLocation();
+		        int x = (int) point.getX();
+		        int y = (int) point.getY();
 				
+				JDialog dialog = new JDialog(f, "Rebind", true);
+				dialog.setLocation(x, y);
+				
+				JPanel cardPanel = new JPanel();
+				CardLayout cardLayout = new CardLayout();
+				cardPanel.setLayout(cardLayout);
+				
+				//first panel
+				JPanel selectPanel = new JPanel();
+				
+				selectPanel.setLayout(new GridBagLayout());
+	            GridBagConstraints gbc = new GridBagConstraints();
+	            gbc.fill = GridBagConstraints.BOTH; // Fill horizontally
+				
+				JLabel label = new JLabel("What to rebind?");
+				gbc.gridx = 0;
+				gbc.gridy = 0;
+				selectPanel.add(label, gbc);
+				
+				Border border = BorderFactory.createLineBorder(Color.BLACK);
+				
+		        JList<String> list = new JList<>(convert.keySet().toArray(new String[0]));
+		        list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		        list.setBorder(border);
+				gbc.gridy = 1;
+		        selectPanel.add(list, gbc);
+		        
+		        //second panel
+		        JPanel rebindPanel = new JPanel();
+		        rebindPanel.setLayout(new BoxLayout(rebindPanel, BoxLayout.Y_AXIS));
+		        
+		        JLabel rebindLabel = new JLabel("Press any key");
+		        rebindPanel.add(rebindLabel);
+		        
+		        AtomicReference<Thread> keyUpdateRef = new AtomicReference<>();
+		        AtomicReference<String> newKeyRebind = new AtomicReference<>();
+		        
+		        JButton okButton = new JButton("Confirm");
+		        okButton.addActionListener(new ActionListener() {
+
+					@Override
+					public void actionPerformed(ActionEvent e) 
+					{
+						String selected = list.getSelectedValue();
+						String prop = convert.get(selected);
+						pw.setStringProp(prop, newKeyRebind.get());
+						cardLayout.show(cardPanel, "Select Panel");
+					}
+		        	
+		        });
+		        rebindPanel.add(okButton);
+		        
+		        JButton cancelButton = new JButton("Cancel");
+				cancelButton.addActionListener(new ActionListener() {
+
+					@Override
+					public void actionPerformed(ActionEvent e) 
+					{
+						if(keyUpdateRef.get() != null)
+							keyUpdateRef.get().interrupt();
+						cardLayout.show(cardPanel, "Select Panel");
+					}
+					
+				});
+		        rebindPanel.add(cancelButton);
+		        //second panel done
+		        
+		        JButton button = new JButton("Rebind");
+		        button.addActionListener(new ActionListener() {
+
+					@Override
+					public void actionPerformed(ActionEvent e) 
+					{
+						String selected = list.getSelectedValue();
+						if(selected == null) return;
+						
+						cardLayout.show(cardPanel, "Rebind Panel");
+						
+						Thread keyUpdate = new Thread(() -> {
+							try {
+						        okButton.setEnabled(false);
+						        rebindLabel.setText("Press any key");
+								System.out.println("started rebind thread");
+						        lastKeyPressed = -1;
+						        while(lastKeyPressed == -1) //quick and dirty wait until lastkeypressed changes, shouldnt fuck cpu i hope
+						        {
+						        	Thread.sleep(50);
+						        }
+						        okButton.setEnabled(true);
+						        newKeyRebind.set(NativeKeyEvent.getKeyText(lastKeyPressed));
+						        rebindLabel.setText("<html>Rebind " + selected + "<br>to ( " + newKeyRebind.get() + " )?</html>"); //praise be html formatting
+						        System.out.println("stopped rebind thread (natural)");
+						        return;
+					        } catch (InterruptedException e1) {
+								e1.printStackTrace();
+								System.out.println("stopped rebind thread (forced)");
+								return;
+							}
+					        
+						});
+						keyUpdateRef.set(keyUpdate);
+						keyUpdate.start();
+						
+					}
+		        	
+		        });
+		        gbc.gridy = 2;
+		        selectPanel.add(button, gbc);
+		        //first panel done
+		        
+		        dialog.addWindowListener(new WindowAdapter() {
+		        	
+		        	@Override
+		        	public void windowClosed(WindowEvent e)
+		        	{
+		        		if(keyUpdateRef.get() != null)
+		        			keyUpdateRef.get().interrupt();
+		        	}
+		        	
+		        });
+		        
+		        cardPanel.add(selectPanel, "Select Panel");
+		        cardPanel.add(rebindPanel, "Rebind Panel");
+		        dialog.setContentPane(cardPanel);
+		        
+		        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+		        dialog.setResizable(false);
+		        dialog.pack();
+		        dialog.setVisible(true);
 			}
 			
 		});
-		this.add(updateConfig);
-		*/
+		this.add(updateConfig, gbc);
+		
 		startButton = new JButton("Start (" + pw.getStringProp("start") + ")");
 		gbc.gridx = 0;
 		gbc.gridy = 7;
@@ -349,6 +488,8 @@ class MainPane extends JPanel implements NativeKeyListener
         	if(NativeKeyEvent.getKeyText(e.getKeyCode()).equals(k))
         		v.run();
         });
+        
+        lastKeyPressed = e.getKeyCode();
     }
 	
 	@Override
@@ -440,6 +581,11 @@ class MainPane extends JPanel implements NativeKeyListener
 	
 	private static void fish()
 	{
+		Robot robot = null;
+		int key = 0;
+		int forwardKey = 0;
+		int backwardKey = 0;
+		int jumpKey = 0;
 		try {
 			int timeout = pw.getIntProp("timeout");
 			int interval = pw.getIntProp("interval");
@@ -447,12 +593,12 @@ class MainPane extends JPanel implements NativeKeyListener
 			int afkTimer = 0;
 			int whiteThreshold = pw.getIntProp("white");
 			double significance = pw.getDoubleProp("significance");
-			int key = getKeyCode(pw.getStringProp("fishbutton"));
-			int forwardKey = getKeyCode(pw.getStringProp("forward"));
-			int backwardKey = getKeyCode(pw.getStringProp("backward"));
-			int jumpKey = getKeyCode(pw.getStringProp("jump"));
+			key = getKeyCode(pw.getStringProp("fishbutton"));
+			forwardKey = getKeyCode(pw.getStringProp("forward"));
+			backwardKey = getKeyCode(pw.getStringProp("backward"));
+			jumpKey = getKeyCode(pw.getStringProp("jump"));
 			
-			Robot robot = new Robot();
+			robot = new Robot();
 			while(!Thread.currentThread().isInterrupted())
 			{
 				long startTime = System.currentTimeMillis();
@@ -523,10 +669,18 @@ class MainPane extends JPanel implements NativeKeyListener
 					}
 				}
 			}
-		}catch(InterruptedException | AWTException e) {
+		}catch(InterruptedException | AWTException | IllegalArgumentException e) {
 			e.printStackTrace();
 			startButton.setEnabled(true);
 			stopButton.setEnabled(false);
+			
+			if(robot != null) //release keys in case they are down
+			{
+				robot.keyRelease(key);
+				robot.keyRelease(forwardKey);
+				robot.keyRelease(backwardKey);
+				robot.keyRelease(jumpKey);
+			}
 			return;
 		}
 		
@@ -642,7 +796,7 @@ class PropertiesWrapper
 	
 }
 
-//chatgpt gobleguk; i hate java
+//chatgpt gobleguk; i hate java stupid high level garbage, next bot im making is gonna use C
 class FileLocator {
     public static File getFileAdjacentToJar(String fileName) {
         // Check if running from a JAR file
